@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Less-Addictive YouTube Player</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #b1b1b1;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        #video-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        /* --- 【変更点】ここから --- */
+        .video-wrapper {
+            width: 400px; /* ← 横幅を 560px から 400px に変更 */
+            max-width: 100%;
+            background-color: #b1b1b1;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .video-wrapper iframe {
+            width: 100%;
+            height: 225px; /* ← 高さを 315px から 225px に変更 (16:9の比率を維持) */
+            border: none;
+        }
+        /* --- 【変更点】ここまで --- */
+        #status-message {
+            text-align: center;
+            font-size: 1.2em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>My Less-Addictive YouTube Player</h1>
+    <div id="status-message">Loading...</div>
+    <div id="video-container"></div>
+
+    <script>
+        const gasApiUrl = "https://script.google.com/macros/s/AKfycbwiatyHJrsOAJCBTmLZrKr-QHF_9_oeP5OTldYp8UqwPdA-Jg8DjjD3f3IU7OfrDWFe/exec";
+
+        let allVideoIds = []; // 全ての動画IDを保持する配列
+        let currentIndex = 0; // 次に表示する動画の開始インデックス
+        const videosPerLoad = 12; // 一度に読み込む動画の数
+
+        // -----------------------------------------------------------------
+        // 動画をページに追加するメインの関数
+        // -----------------------------------------------------------------
+        function loadMoreVideos() {
+            const container = document.getElementById('video-container');
+            
+            // 表示すべき動画のスライス（一部分）を取得
+            const videosToLoad = allVideoIds.slice(currentIndex, currentIndex + videosPerLoad);
+
+            if (videosToLoad.length === 0 && currentIndex > 0) {
+                // もう読み込む動画がない場合
+                document.getElementById('status-message').innerText = '全ての動画を読み込みました。';
+                return;
+            }
+
+            videosToLoad.forEach(videoId => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'video-wrapper';
+
+                const iframe = document.createElement('iframe');
+                iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0`;
+                // loading="lazy" を追加して、ブラウザのネイティブ遅延読み込みも活用
+                iframe.loading = "lazy";
+                iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+                iframe.allowFullscreen = true;
+
+                wrapper.appendChild(iframe);
+                container.appendChild(wrapper);
+            });
+
+            // 次に読み込むべきインデックスを更新
+            currentIndex += videosPerLoad;
+        }
+
+        // -----------------------------------------------------------------
+        // スクロールイベントの監視
+        // -----------------------------------------------------------------
+        window.onscroll = function() {
+            // (ウィンドウの高さ + スクロール量) が (ページ全体の高さ - 200px) を超えたら次の動画を読み込む
+            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+                loadMoreVideos();
+            }
+        };
+
+        // -----------------------------------------------------------------
+        // ページ初期化のメイン処理
+        // -----------------------------------------------------------------
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        window.onload = function() {
+            const fetchUrl = gasApiUrl + "?action=getVideos";
+            const statusMessage = document.getElementById('status-message');
+
+            fetch(fetchUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.videos && data.videos.length > 0) {
+                        statusMessage.innerText = 'スクロールして動画を読み込みます...';
+                        
+                        allVideoIds = shuffleArray(data.videos); // 取得した全動画をシャッフルして保存
+                        
+                        // 最初の動画セットを読み込む
+                        loadMoreVideos();
+                    } else {
+                        statusMessage.innerText = '再生できる動画がありません。';
+                    }
+                })
+                .catch(error => {
+                    console.error('動画の読み込みに失敗しました:', error);
+                    statusMessage.innerText = '動画の読み込みに失敗しました。';
+                    statusMessage.style.color = 'red';
+                });
+        };
+    </script>
+</body>
+</html>
